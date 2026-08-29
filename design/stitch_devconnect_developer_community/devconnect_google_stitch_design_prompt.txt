@@ -1,0 +1,460 @@
+GOOGLE STITCH DESIGN PROMPT — DEVCONNECT
+
+PROJECT OVERVIEW
+
+Design a high-fidelity, responsive web application called “DevConnect”. DevConnect is a professional community forum for software developers, cloud and DevOps engineers, cybersecurity professionals, IT students, and technology enthusiasts to exchange knowledge through posts, threaded discussions, communities, announcements, and events.
+
+The interface must feel credible enough for a production portfolio project. It should feel like a focused professional community rather than a Facebook clone, gaming community, or generic social-media template.
+
+Create a coherent multi-page design system and three role-based experiences:
+
+1. Guest — unauthenticated visitor.
+2. Member — authenticated regular user.
+3. Administrator — authenticated administrator with moderation capabilities. The administrator design may also represent a moderator role.
+
+CRITICAL DATA AND CONTENT RULE
+
+DO NOT hard-code posts, stories, announcements, comments, users, profile information, communities, groups, events, contributor rankings, notification records, or any other user-generated or database-generated content.
+
+The interface must be ready for later integration with a C# ASP.NET Core API. All dynamic areas must be represented as reusable data-bound components, neutral placeholders, skeleton-loading states, or empty states.
+
+Do not generate mock JavaScript arrays, embedded JSON datasets, fake posts, named fake users, fabricated communities, sample comments, sample announcements, fictional events, lorem ipsum, or permanent example content.
+
+Allowed static text is limited to interface labels and short system messages, such as “Create post”, “Saved”, “No posts available”, “Loading posts”, “Join community”, “Sign in to continue”, and form-field labels.
+
+Use API-binding notation in design annotations where useful, for example:
+
+- posts[]
+- announcements[]
+- subscribedPosts[]
+- communities[]
+- events[]
+- notifications[]
+- topContributors[]
+- post.author.displayName
+- post.createdAt
+- post.commentCount
+- post.likeCount
+
+If frontend code is generated, create reusable components that receive data through props or API state. Do not populate them with hard-coded content. Include loading, empty, error, unauthenticated, and permission-denied states.
+
+DESIGN DIRECTION
+
+Use a modern, professional technology-community visual identity.
+
+- Light-first interface with optional dark-theme tokens.
+- Deep navy for navigation and primary surfaces.
+- Accessible indigo or electric blue as the main action colour.
+- Cyan as a restrained secondary accent.
+- Neutral cool-grey backgrounds and borders.
+- Amber for warnings.
+- Red only for destructive or high-risk moderation actions.
+- Green for confirmed, successful, or healthy states.
+- Avoid excessive neon effects, gradients, glassmorphism, and visual clutter.
+- Use subtle elevation, clear borders, and comfortable spacing.
+- Use Inter or a similar highly readable sans-serif typeface.
+- Optionally use JetBrains Mono or a similar monospaced typeface for technology tags, code labels, or technical metadata only.
+- Use an 8-pixel spacing system, approximately 10–14 pixel corner radii, and restrained shadows.
+- Maintain WCAG AA colour contrast.
+
+The design should communicate trust, technical competence, collaboration, and clarity.
+
+RESPONSIVE REQUIREMENTS
+
+Design for:
+
+- Desktop: 1440px reference width.
+- Tablet: approximately 768px.
+- Mobile: approximately 390px.
+
+Desktop may use a three-column feed layout. On smaller screens:
+
+- Collapse sidebars into drawers, accordions, or secondary tabs.
+- Preserve the feed as the primary content.
+- Keep primary actions reachable.
+- Move low-priority administrative actions into an overflow menu.
+- Never hide required moderation information from administrators.
+- Maintain minimum 44x44px touch targets.
+- Avoid horizontal scrolling except for clearly intentional tab or tag carousels.
+
+GLOBAL APPLICATION SHELL
+
+Create a consistent top navigation bar containing:
+
+- DevConnect logo and wordmark.
+- Home.
+- Communities.
+- Events.
+- About.
+- Search entry point.
+- Notifications for authenticated users.
+- Saved content for authenticated users.
+- Role-aware account area.
+
+Guest account area:
+
+- “Log in” button.
+- Prominent “Sign up” button.
+
+Member and administrator account area:
+
+- Avatar placeholder.
+- Dynamic user_name placeholder.
+- Dropdown linking to Profile, Settings, Saved, and Log out.
+
+Include a responsive mobile navigation pattern.
+
+ROLE-BASED HOME PAGE DESIGNS
+
+Generate three separately named home-page screens: Home — Guest, Home — Member, and Home — Administrator.
+
+A. HOME — GUEST
+
+Guests may browse only publicly accessible global and trending content.
+
+Include:
+
+- Global and Trending feed tabs.
+- A central API-driven feed region using PostCard skeletons or empty reusable PostCard containers.
+- Public announcements region.
+- Public upcoming-events preview.
+- Public community-discovery preview.
+- Clear login and sign-up calls to action.
+- A short, non-intrusive explanation of the benefits of joining.
+
+Guest restrictions:
+
+- Do not show an active post composer.
+- Do not allow posting, commenting, liking, saving, joining communities, subscribing, or event RSVP.
+- When a guest selects a restricted interaction, show a polished authentication prompt or modal explaining that sign-in is required.
+- Guests can open only content marked public by the future API.
+
+B. HOME — MEMBER
+
+Use a balanced three-column desktop layout.
+
+Left sidebar:
+
+- Subscribed Groups dropdown populated by communities[].
+- Saved shortcut.
+- My Communities shortcut.
+- Event reminders populated by events[].
+- Collapsible behaviour on smaller screens.
+
+Centre column:
+
+- Create-post composer similar in usability to a modern forum or social platform, but visually original.
+- Composer actions for text, image attachment, community destination, tags, and preview.
+- Feed tabs such as Following, Global, and Trending.
+- API-driven feed container populated by posts[] or subscribedPosts[].
+- Reusable PostCard design with reserved data slots for author, avatar, role badge, timestamp, community, title, body excerpt, image, tags, likes, comments, save state, and overflow menu.
+- Comments and thread entry points.
+- Pagination or infinite-scroll loading state.
+- Refresh/new-post indicator.
+
+Right sidebar:
+
+- Announcements populated by announcements[].
+- Upcoming events populated by events[].
+- Top contributors populated by topContributors[].
+- Optional community recommendations populated by recommendations[].
+
+Member permissions:
+
+- Create, edit, and delete their own posts.
+- Comment and reply.
+- Like and unlike.
+- Save and unsave.
+- Join, leave, subscribe to, or unsubscribe from communities according to API permissions.
+- Report inappropriate content.
+- No administrator moderation controls.
+
+C. HOME — ADMINISTRATOR
+
+Keep the interface recognisably related to the member experience, but provide a clearly different operational layout.
+
+Include:
+
+- A visible Administrator role indicator.
+- A compact moderation-status summary.
+- Direct links to Moderation Queue, Reported Content, User Warnings, Audit Log, Community Management, Announcement Management, and Event Management.
+- Centre feed with the same API-driven content structure as members.
+- Additional moderation-status chips on content when returned by the API, such as reported, hidden, locked, or pinned.
+- Inline administrator overflow actions for Warn user, Hide post, Delete post, Pin/unpin, Lock/unlock thread, Review reports, and View audit history.
+- Destructive actions must never be one-click operations. Include confirmation dialogs, a required reason field where appropriate, impact explanation, and cancel action.
+- Use red only for destructive actions and amber for warnings.
+- Provide space for moderation context without making every post visually noisy.
+- Add a right-side moderation panel or compact queue summary that can be collapsed.
+
+Do not show administrator controls in guest or member variants.
+
+POST AND THREAD COMPONENTS
+
+Design a reusable PostCard component rather than static post examples.
+
+Required data regions:
+
+- author avatar
+- author display name
+- author role or expertise badge
+- community name
+- creation timestamp
+- optional edited indicator
+- post title
+- post content or excerpt
+- optional image/media region
+- technology tags
+- like count and state
+- comment count
+- save state
+- share/copy-link action
+- report action for members
+- moderation menu for administrators only
+
+Create component states:
+
+- Loading skeleton.
+- Loaded data-bound template without fabricated content.
+- Text-only post.
+- Post with media placeholder.
+- Empty feed.
+- Feed-loading failure with retry.
+- Hidden or removed content state.
+- Locked discussion state.
+
+Create a Thread Detail screen with:
+
+- Full post region.
+- Threaded comments/replies populated by comments[].
+- Sort controls.
+- Reply composer for members and administrators.
+- Sign-in prompt for guests.
+- Collapsed deep replies to prevent excessive indentation on mobile.
+- Administrator moderation controls only in the administrator variant.
+
+PROFILE AND SETTINGS
+
+Create profile viewing and profile-editing screens.
+
+Include:
+
+- Avatar upload and crop area.
+- Display name.
+- Username.
+- Bio.
+- Technical interests and skills.
+- Optional location.
+- Optional website, GitHub, or professional links.
+- Joined communities.
+- Contribution statistics populated by API data.
+- User posts tab populated by posts[].
+- Saved tab visible only to the profile owner.
+
+Settings sections:
+
+- Edit personal information.
+- Change or reset password.
+- Email preferences.
+- Notification preferences.
+- Privacy controls.
+- Connected sessions or devices.
+- Two-factor authentication placeholder for future implementation.
+- Deactivate account.
+- Delete account with strong confirmation safeguards.
+
+Administrator profiles may include an administrator badge and a link to relevant audit activity. Guests may view only profiles that the future API marks public.
+
+COMMUNITIES
+
+Create a Communities Directory screen and a Community Detail screen.
+
+CRITICAL: Do not hard-code community cards, community names, member counts, descriptions, or community posts. Use reusable CommunityCard templates, skeletons, empty states, and communities[] bindings.
+
+Communities Directory should include:
+
+- Search.
+- Technology/topic filters.
+- Joined, Discover, and Trending tabs where appropriate.
+- CommunityCard data slots for icon/banner, name, description, member count, activity status, tags, and join state.
+- Empty, loading, and error states.
+
+Community Detail should include:
+
+- Dynamic community header and banner.
+- Join/leave or subscribe/unsubscribe control.
+- Tabs for Feed, About, Members, Events, and Resources.
+- Community-specific post composer for members with permission.
+- Community announcements and reminders populated by API data.
+- Pinned-content region populated by API data.
+- Thread and comment views.
+- Community rules area.
+- Member-role indicators.
+- Guest sign-in prompts for restricted actions.
+- Administrator tools for editing community information, publishing announcements, pinning content, managing members, and reviewing reports.
+
+EVENTS
+
+Create an Events Directory screen and Event Detail screen.
+
+Do not hard-code event records. Bind all repeated event content to events[].
+
+Include:
+
+- List and calendar viewing options.
+- Upcoming and Past tabs.
+- Search and filters for topic, format, date, and community.
+- EventCard reusable component.
+- Data slots for title, organiser, date/time, location or online format, capacity, RSVP state, and tags.
+- Event detail with description region, schedule, organiser information, related community, attendee count, and RSVP control.
+- Guests can view public events but must sign in to RSVP.
+- Members can RSVP and manage reminders.
+- Administrators can create, edit, publish, cancel, or archive events.
+- Include cancellation confirmation and status treatments.
+
+ABOUT PAGE
+
+Create a professional About page with structured regions for:
+
+- DevConnect mission.
+- Who the community is for.
+- How knowledge sharing works.
+- Community values.
+- Code of conduct.
+- Safety and moderation approach.
+- Contact or support entry point.
+
+Do not invent long marketing copy, statistics, testimonials, team members, partner logos, or user counts. Use headings, short interface-level supporting text, and clearly labelled content regions that can later be populated.
+
+ADDITIONAL CRITICAL SCREENS
+
+Also generate the following:
+
+1. Login.
+2. Sign up.
+3. Forgot password.
+4. Search results with Posts, Communities, People, and Events tabs.
+5. Notification centre with API-driven notification rows.
+6. Saved content with Posts, Threads, Resources, and Events tabs.
+7. Create/Edit Post modal or page.
+8. Report Content modal.
+9. Administrator Moderation Queue.
+10. Administrator User Warning dialog.
+11. Administrator Announcement Management.
+12. Administrator Event Management.
+13. 403 Permission Denied.
+14. 404 Not Found.
+15. General loading, empty, offline, and error states.
+
+ADMINISTRATION AND MODERATION UX
+
+The administration experience should prioritise safety, clarity, and accountability.
+
+- Show why content was reported when report data exists.
+- Show content status and moderation history.
+- Require reasons for warnings, removals, and bans.
+- Distinguish warning, hide, delete, lock, suspend, and ban actions.
+- Clearly show whether an action is reversible.
+- Provide confirmation and cancel controls.
+- Include success and failure feedback.
+- Reserve space for audit log data.
+- Avoid accidental destructive actions.
+- Keep administrative actions visually separate from normal engagement actions.
+
+ACCESSIBILITY
+
+- Meet WCAG AA contrast requirements.
+- Provide visible keyboard focus states.
+- Do not communicate status through colour alone.
+- Use text labels or accessible tooltips for unfamiliar icons.
+- Support keyboard navigation for menus, dialogs, tabs, and composers.
+- Ensure forms include labels, help text, validation, and error summaries.
+- Use accessible dialog focus management.
+- Provide reduced-motion behaviour.
+- Use semantic heading hierarchy.
+- Preserve comfortable line length for long technical discussions.
+
+MOTION AND PERFORMANCE RULES
+
+All animations must remain performant under load.
+
+- Animate transform and opacity whenever possible so animations can use the compositor thread.
+- Do not animate width, height, top, left, right, margin, padding, or other layout-affecting properties for routine UI transitions.
+- Use transform: translate(), scale(), or scaleX() for drawers, panels, menus, indicators, and progress feedback.
+- Implement progress bars using transform: scaleX() with transform-origin: left rather than animating width.
+- Prefer short, purposeful transitions, generally 120–220ms.
+- Avoid excessive blur, large animated shadows, parallax, or continuous decorative animation.
+- Use opacity and transform for modal, menu, toast, card-entry, and sidebar transitions.
+- Respect prefers-reduced-motion and provide near-instant state changes when reduced motion is enabled.
+- Reserve media aspect ratios to reduce layout shift.
+- Design feed loading for pagination or incremental loading rather than rendering an unlimited list at once.
+- Ensure skeletons do not cause content to jump when API data arrives.
+
+COMPONENT AND API-READY REQUIREMENTS
+
+Create a reusable component library containing at least:
+
+- AppHeader
+- MobileNavigation
+- LeftSidebar
+- RightSidebar
+- AdminSidebar
+- PostComposer
+- PostCard
+- CommentThread
+- CommentComposer
+- CommunityCard
+- EventCard
+- AnnouncementCard
+- ContributorItem
+- NotificationItem
+- SearchFilters
+- Tabs
+- StatusBadge
+- EmptyState
+- LoadingSkeleton
+- ErrorState
+- ConfirmationDialog
+- AuthenticationPrompt
+- Toast/feedback message
+
+Each repeated component must have clearly defined loading, empty, populated/data-bound, error, disabled, hover, focus, active, and permission-restricted states where relevant.
+
+Do not make API calls in the static design. Instead, structure every dynamic component so it can later receive data from an ASP.NET Core API.
+
+DESIGN OUTPUT REQUEST
+
+Produce:
+
+1. A shared DevConnect design system with colours, typography, spacing, icons, buttons, forms, cards, badges, dialogs, navigation, and responsive rules.
+2. Three clearly separated role experiences: Guest, Member, and Administrator.
+3. Desktop, tablet, and mobile responsive designs for the most important screens.
+4. High-fidelity screens for all pages listed above.
+5. Reusable API-ready components instead of static content examples.
+6. Loading, empty, error, restricted, and destructive-confirmation states.
+7. Clear annotations showing which components are dynamic and which role may access each action.
+
+Name frames and screens consistently, for example:
+
+- Guest / Home / Desktop
+- Member / Home / Desktop
+- Administrator / Home / Desktop
+- Shared / Communities / Directory
+- Member / Community / Detail
+- Administrator / Moderation / Queue
+- Shared / Components / PostCard
+- Shared / States / Empty Feed
+
+FINAL QUALITY CHECK
+
+Before completing the design, verify that:
+
+- No posts, stories, comments, communities, events, announcements, users, or contributor data have been hard-coded.
+- Guest, Member, and Administrator permissions are visibly different.
+- Administrator controls never appear in guest or member screens.
+- Guests cannot publish or interact without authentication.
+- Dynamic sections are clearly prepared for API data.
+- All major screens include loading, empty, and failure states.
+- Destructive administrator actions require confirmation.
+- The responsive design remains usable on mobile.
+- Animations use transform and opacity instead of layout-changing properties.
+- The result feels like one cohesive professional product.
