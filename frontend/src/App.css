@@ -829,7 +829,9 @@
 .dialog {
   position: relative;
   width: min(100%, 440px);
+  max-height: calc(100vh - 40px);
   padding: 32px;
+  overflow-y: auto;
   background: var(--surface-card);
   border: 1px solid var(--slate-200);
   border-radius: 16px;

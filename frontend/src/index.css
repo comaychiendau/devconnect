@@ -93,7 +93,7 @@ p {
 }
 
 :focus-visible {
-  outline: 3px solid var(--focus);
+  outline: 3px solid var(--indigo-600);
   outline-offset: 2px;
 }
 

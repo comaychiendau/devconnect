@@ -10,7 +10,7 @@ function FormField({
   className = '',
   ...inputProps
 }) {
-  const describedBy = [help ? `${id}-help` : '', error ? `${id}-error` : ''].filter(Boolean).join(' ') || undefined
+  const describedBy = error ? `${id}-error` : help ? `${id}-help` : undefined
 
   return (
     <div className={`form-field${error ? ' form-field--error' : ''}${className ? ` ${className}` : ''}`}>

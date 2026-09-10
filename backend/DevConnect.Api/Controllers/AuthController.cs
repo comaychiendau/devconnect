@@ -58,15 +58,13 @@ public sealed class AuthController : ControllerBase
 
     [AllowAnonymous]
     [HttpPost("login")]
-    public async Task<ActionResult<UserResponse>> Login(
-        LoginRequest request)
+    public async Task<ActionResult<UserResponse>> Login(LoginRequest request)
     {
         var email = request.Email.Trim();
 
-        // Find the user account connected to this email.
         var user = await _userManager.FindByEmailAsync(email);
 
-        if (user is null)
+        if (user is null || string.IsNullOrEmpty(user.UserName))
         {
             return Unauthorized(new
             {
@@ -74,9 +72,8 @@ public sealed class AuthController : ControllerBase
             });
         }
 
-        // Check the password and create the authentication cookie.
         var result = await _signInManager.PasswordSignInAsync(
-            user,
+            user.UserName,
             request.Password,
             request.RememberMe,
             lockoutOnFailure: true);

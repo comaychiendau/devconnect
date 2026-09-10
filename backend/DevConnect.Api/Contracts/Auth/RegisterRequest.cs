@@ -4,7 +4,7 @@ namespace DevConnect.Api.Contracts.Auth;
 public sealed class RegisterRequest
 {
     [Required]
-    [MaxLength(150)]
+    [MaxLength(100)]
     public string FullName { get; init; } = string.Empty;
 
     [Required]
