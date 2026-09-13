@@ -8,7 +8,6 @@ import {
     logoutUser,
     registerUser,
 } from '../api/auth.js'
-
 import { AuthContext } from './useAuth.js'
 
 export function AuthProvider({ children }) {
@@ -74,4 +73,3 @@ export function AuthProvider({ children }) {
         </AuthContext.Provider>
     )
 }
-
