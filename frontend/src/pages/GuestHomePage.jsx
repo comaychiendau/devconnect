@@ -11,6 +11,7 @@ import {
 } from '../components/DataState.jsx'
 import Icon from '../components/Icon.jsx'
 import Tabs from '../components/Tabs.jsx'
+import { useAuth } from '../context/useAuth.js'
 
 const feedTabs = [
   { id: 'global', label: 'Global' },
@@ -20,26 +21,43 @@ const feedTabs = [
 function GuestHomePage() {
   const [activeFeed, setActiveFeed] = useState('global')
   const [promptAction, setPromptAction] = useState('')
+  const { user, isLoading } = useAuth()
 
   return (
     <div className="page-shell">
       <AppHeader />
       <main className="home-layout">
-        <aside className="home-sidebar home-sidebar--left" aria-label="Guest information">
-          <section className="card join-card">
-            <span className="eyebrow">For developers, by developers</span>
-            <h1>Join the community</h1>
-            <p>Exchange practical knowledge, follow technical discussions, and connect around the tools you use.</p>
-            <div className="join-card__actions">
-              <Link className="button button--primary" to="/signup">
-                Create account
-                <Icon name="arrowRight" size={18} />
-              </Link>
-              <Link className="button button--secondary" to="/login">
-                Log in
-              </Link>
-            </div>
-          </section>
+        <aside className="home-sidebar home-sidebar--left" aria-label="Account and community information">
+          {!isLoading && (
+            user ? (
+              <section className="card join-card">
+                <span className="eyebrow">Welcome back</span>
+                <h1>{user.fullName?.trim() || user.userName || user.email}</h1>
+                <p>Continue exploring discussions and communities across DevConnect.</p>
+                <div className="join-card__actions">
+                  <Link className="button button--primary" to="/communities">
+                    Browse communities
+                    <Icon name="arrowRight" size={18} />
+                  </Link>
+                </div>
+              </section>
+            ) : (
+              <section className="card join-card">
+                <span className="eyebrow">For developers, by developers</span>
+                <h1>Join the community</h1>
+                <p>Exchange practical knowledge, follow technical discussions, and connect around the tools you use.</p>
+                <div className="join-card__actions">
+                  <Link className="button button--primary" to="/signup">
+                    Create account
+                    <Icon name="arrowRight" size={18} />
+                  </Link>
+                  <Link className="button button--secondary" to="/login">
+                    Log in
+                  </Link>
+                </div>
+              </section>
+            )
+          )}
 
           <section className="card sidebar-card" aria-labelledby="community-discovery-title">
             <div className="section-heading section-heading--compact">
@@ -74,9 +92,11 @@ function GuestHomePage() {
               <span className="eyebrow">Public discussions</span>
               <h2 id="public-feed-title">Explore the latest knowledge</h2>
             </div>
-            <button className="button button--soft feed-join-button" type="button" onClick={() => setPromptAction('join a discussion')}>
-              Join a discussion
-            </button>
+            {!isLoading && !user && (
+              <button className="button button--soft feed-join-button" type="button" onClick={() => setPromptAction('join a discussion')}>
+                Join a discussion
+              </button>
+            )}
           </div>
           <Tabs tabs={feedTabs} activeTab={activeFeed} onChange={(tab) => setActiveFeed(tab.id)} label="Public feed" />
           <div aria-labelledby={`${activeFeed}-tab`} className="feed-list" role="tabpanel">
@@ -141,21 +161,23 @@ function GuestHomePage() {
             />
           </section>
 
-          <section className="member-benefit">
-            <span className="member-benefit__icon" aria-hidden="true">
-              <Icon name="users" size={20} />
-            </span>
-            <div>
-              <h2>Make DevConnect yours</h2>
-              <p>Sign in to follow discussions, save resources, and join communities.</p>
-            </div>
-          </section>
+          {!isLoading && !user && (
+            <section className="member-benefit">
+              <span className="member-benefit__icon" aria-hidden="true">
+                <Icon name="users" size={20} />
+              </span>
+              <div>
+                <h2>Make DevConnect yours</h2>
+                <p>Sign in to follow discussions, save resources, and join communities.</p>
+              </div>
+            </section>
+          )}
         </aside>
       </main>
       <AuthenticationPrompt
         action={promptAction || 'continue'}
         onClose={() => setPromptAction('')}
-        open={Boolean(promptAction)}
+        open={Boolean(promptAction) && !user}
       />
     </div>
   )
