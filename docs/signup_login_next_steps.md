@@ -39,7 +39,7 @@ Run the checks and live API flow listed above.
 
 Done: 12 September 2026.
 
-### M1 — Remove the tracked database password
+### M1 — Remove the tracked database password -- DONE!!!
 
 - [ ] Delete `ConnectionStrings` from `appsettings.json`; keep the local value in .NET User Secrets.
 - [ ] Rotate the exposed value anywhere it was reused.

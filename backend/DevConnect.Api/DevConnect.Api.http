@@ -1,6 +1,127 @@
-@DevConnect.Api_HostAddress = http://localhost:5084
+@DevConnect.Api_HostAddress = https://localhost:7201
 
-GET {{DevConnect.Api_HostAddress}}/weatherforecast/
+### 1 — Invalid registration: expect 400
+POST {{DevConnect.Api_HostAddress}}/api/auth/register
+Content-Type: application/json
 Accept: application/json
+
+{
+  "fullName": "",
+  "email": "invalid-email",
+  "userName": "invalid username!",
+  "password": "weak"
+}
+
+###
+
+### 2 — Register a unique user: expect 200 or 201
+# @name register
+POST {{DevConnect.Api_HostAddress}}/api/auth/register
+Content-Type: application/json
+Accept: application/json
+
+{
+  "fullName": "Authentication Test",
+  "email": "auth.{{$timestamp}}.{{$randomInt 1000 9999}}@example.com",
+  "userName": "auth-{{$timestamp}}-{{$randomInt 1000 9999}}",
+  "password": "Testing123!"
+}
+
+###
+
+### 3 — Get registered user: expect 200
+GET {{DevConnect.Api_HostAddress}}/api/auth/me
+Accept: application/json
+Cookie: {{register.response.headers.Set-Cookie}}
+
+###
+
+### 4 — Duplicate email: expect 400
+POST {{DevConnect.Api_HostAddress}}/api/auth/register
+Content-Type: application/json
+Accept: application/json
+
+{
+  "fullName": "Duplicate Email Test",
+  "email": "{{register.request.body.$.email}}",
+  "userName": "different-{{$timestamp}}",
+  "password": "Testing123!"
+}
+
+###
+
+### 5 — Duplicate username: expect 400
+POST {{DevConnect.Api_HostAddress}}/api/auth/register
+Content-Type: application/json
+Accept: application/json
+
+{
+  "fullName": "Duplicate Username Test",
+  "email": "different.{{$timestamp}}@example.com",
+  "userName": "{{register.request.body.$.userName}}",
+  "password": "Testing123!"
+}
+
+###
+
+### 6 — Logout registered user: expect 200 or 204
+# @name logoutAfterRegister
+POST {{DevConnect.Api_HostAddress}}/api/auth/logout
+Cookie: {{register.response.headers.Set-Cookie}}
+
+###
+
+### 7 — Current user after logout: expect 401
+GET {{DevConnect.Api_HostAddress}}/api/auth/me
+Accept: application/json
+Cookie: {{logoutAfterRegister.response.headers.Set-Cookie}}
+
+###
+
+### 8 — Incorrect password: expect 401
+POST {{DevConnect.Api_HostAddress}}/api/auth/login
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "{{register.request.body.$.email}}",
+  "password": "Incorrect123!",
+  "rememberMe": false
+}
+
+###
+
+### 9 — Correct login: expect 200
+# @name login
+POST {{DevConnect.Api_HostAddress}}/api/auth/login
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "{{register.request.body.$.email}}",
+  "password": "{{register.request.body.$.password}}",
+  "rememberMe": true
+}
+
+###
+
+### 10 — Current user after login: expect 200
+GET {{DevConnect.Api_HostAddress}}/api/auth/me
+Accept: application/json
+Cookie: {{login.response.headers.Set-Cookie}}
+
+###
+
+### 11 — Final logout: expect 200 or 204
+# @name finalLogout
+POST {{DevConnect.Api_HostAddress}}/api/auth/logout
+Cookie: {{login.response.headers.Set-Cookie}}
+
+###
+
+### 12 — Confirm logout: expect 401
+GET {{DevConnect.Api_HostAddress}}/api/auth/me
+Accept: application/json
+Cookie: {{finalLogout.response.headers.Set-Cookie}}
 
 ###
