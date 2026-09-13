@@ -6,7 +6,7 @@ import Icon from '../components/Icon.jsx'
 import { useAuth } from '../context/useAuth.js'
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const usernamePattern = /^[a-zA-Z0-9_]+$/
+const usernamePattern = /^[a-zA-Z0-9._-]+$/
 
 function validatePassword(password) {
     const errors = []
@@ -112,9 +112,6 @@ function SignUpPage() {
 
         if (!fullName) {
             nextErrors.fullName = 'Enter your full name.'
-        } else if (fullName.length < 2) {
-            nextErrors.fullName =
-                'Name must be at least 2 characters.'
         } else if (fullName.length > 100) {
             nextErrors.fullName =
                 'Name must be 100 characters or fewer.'
@@ -131,9 +128,12 @@ function SignUpPage() {
         } else if (username.length < 3) {
             nextErrors.username =
                 'Username must be at least 3 characters.'
+        } else if (username.length > 30) {
+            nextErrors.username =
+                'Username must be 30 characters or fewer.'
         } else if (!usernamePattern.test(username)) {
             nextErrors.username =
-                'Use letters, numbers, and underscores only.'
+                'Use letters, numbers, dots, underscores, and hyphens only.'
         }
 
         if (!values.password) {
