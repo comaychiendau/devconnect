@@ -16,8 +16,7 @@ import { useAuth } from '../context/useAuth.js'
 const baseDirectoryTabs = [
     { id: 'joined', label: 'Joined' },
     { id: 'discover', label: 'Discover' },
-    { id: 'trending', label: 'Trending' },
-]
+] //remove trending because the API does not have activity information so cant decide which communities are trending
 
 function CommunitiesPage() {
     const [activeTab, setActiveTab] = useState('discover')
@@ -25,7 +24,6 @@ function CommunitiesPage() {
 
     const [filters, setFilters] = useState({
         query: '',
-        sort: 'activity',
     })
 
     const [communities, setCommunities] = useState([])
@@ -94,11 +92,33 @@ function CommunitiesPage() {
         !user && activeTab === 'joined'
             ? 'discover'
             : activeTab
+    //filter the communities based on the active tab and search query
+    // const visibleStatus =
+    //     visibleActiveTab === 'joined'
+    //         ? 'empty'
+    //         : directoryStatus
 
-    const visibleStatus =
-        visibleActiveTab === 'joined'
-            ? 'empty'
-            : directoryStatus
+    const normalizedQuery = filters.query.trim().toLowerCase()
+
+    const filteredCommunities = communities.filter((community) => {
+        if (!normalizedQuery) {
+            return true
+        }
+        const name = community.name?.toLowerCase() ?? ''
+        const description = community.description?.toLowerCase() ?? ''
+
+        return (
+            name.includes(normalizedQuery) ||
+            description.includes(normalizedQuery)
+        )
+    },
+    )
+
+    const filteredDirectoryStatus = directoryStatus === 'success' && filteredCommunities.length === 0 ? 'empty' : directoryStatus
+
+    const visibleStatus = visibleActiveTab === 'joined' ? 'empty' : filteredDirectoryStatus
+
+    const visibleResultCount = visibleActiveTab === 'joined' ? 0 : filteredCommunities.length
 
     const handleTabChange = (tab) => {
         if (tab.id === 'joined' && !user) {
@@ -127,7 +147,6 @@ function CommunitiesPage() {
     const clearFilters = () => {
         setFilters({
             query: '',
-            sort: 'activity',
         })
     }
 
@@ -190,33 +209,7 @@ function CommunitiesPage() {
                         />
                     </label>
 
-                    <label className="select-field">
-                        <span className="sr-only">
-                            Sort communities
-                        </span>
-
-                        <select
-                            onChange={(event) =>
-                                setFilters((current) => ({
-                                    ...current,
-                                    sort: event.target.value,
-                                }))
-                            }
-                            value={filters.sort}
-                        >
-                            <option value="activity">
-                                Sort by activity
-                            </option>
-                            <option value="newest">
-                                Sort by newest
-                            </option>
-                            <option value="members">
-                                Sort by members
-                            </option>
-                        </select>
-
-                        <Icon name="chevronDown" size={18} />
-                    </label>
+                
                 </form>
 
                 <Tabs
@@ -233,7 +226,10 @@ function CommunitiesPage() {
                 >
                     <div className="results-meta">
                         <p aria-live="polite">
-                            Community results
+                            {visibleResultCount}{' '}
+                            {visibleResultCount === 1
+                                ? 'community'
+                                : 'communities'}
                         </p>
                         <span>Public directory</span>
                     </div>
@@ -281,7 +277,7 @@ function CommunitiesPage() {
                         }
                     >
                         <div className="community-grid">
-                            {communities.map((community) => (
+                            {filteredCommunities.map((community) => (
                                 <CommunityCard
                                     community={community}
                                     key={community.id}

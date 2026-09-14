@@ -1,137 +1,138 @@
 # DevConnect review and next milestones
 
-Reviewed: 12 September 2026
+Reviewed: 14 September 2026
 
-Work through one milestone at a time. A milestone is complete only when its check passes. Keep each code milestone to one function or one small configuration change.
+Work through one milestone at a time. A milestone is complete only when its check passes.
 
-## Tested baseline
+## Verified baseline
 
 | Check | Result |
-|---|---|
-| `dotnet test DevConnect.slnx --no-restore` | Passed, but no test project or tests were discovered. |
-| `dotnet build DevConnect.slnx --no-restore` | Passed with 0 warnings and 0 errors. |
-| `npm.cmd run lint` | Passed. |
-| `npm.cmd run build` | Passed. |
-| Public API request | `GET /weatherforecast` returned `200`. |
-| Protected API request | Logged-out `GET /api/auth/me` returned `401`. |
-| Authentication flow | Register `200`; authenticated `/me` `200`; duplicate register `400`; logout `200`; logged-out `/me` `401`; wrong password `401`; correct login `200`; `/me` `200`; final logout `200`. |
-| Test data cleanup | The temporary user was deleted (`DELETE 1`). |
+| --- | --- |
+| `npm.cmd run lint` | Passed on 14 September 2026. |
+| `npm.cmd run build` | Passed on 14 September 2026. |
+| Isolated backend build | Passed with 0 warnings and 0 errors on 14 September 2026. |
+| Normal backend build | Could not replace the output DLL because the API was already running; this was a file lock, not a compile error. |
+| Automated tests | No backend or frontend test project exists yet. |
 
-The normal HTTPS launch profile starts successfully. The automated request flow used temporary loopback HTTP because the restricted test shell could not use the Windows TLS credentials. Browser routing, form messages, refresh persistence, and the Vite proxy still need a browser check.
+## Current communities flow
 
-## Review findings
+The public read-only directory is connected end to end:
 
-1. `backend/DevConnect.Api/appsettings.json` contains a tracked database password. User Secrets currently override it, and the tracked value failed local authentication, but it must still be removed and rotated anywhere it was reused.
-2. `sendAuthRequest()` throws response objects. `LoginPage` and `SignUpPage` only display messages from `Error` instances, so useful API errors become generic messages.
-3. `SignUpPage.handleSubmit()` disagrees with `RegisterRequest`: the API allows dots and hyphens in usernames and limits them to 30 characters; the page rejects those characters and has no maximum. The page also adds a two-character full-name rule that the API does not have.
-4. `App()` protects `/communities`, although the product design describes a public community directory. Guests following “Browse directory” are redirected to login.
-5. `CommunitiesPage.handleTabChange()` and the join button always open a sign-in prompt. An authenticated visitor is therefore told to sign in again.
-6. `DevConnect.Api.http` still contains only the template weather request, and it targets HTTP even though authentication cookies are configured as secure.
-7. `auth_dev.md` and `implementation_status.md` describe the implementation as pending and still refer to SQLite, `/signup`, and old file paths.
-8. The template weather endpoint is dead scaffolding once the auth smoke requests replace it.
-9. `CommunitiesPage` always supplies `status="empty"`, and the repository has no real `CommunityCard`; the page cannot display API results yet.
+1. `App.jsx` maps `/communities` directly to `CommunitiesPage`, so guests may open it.
+2. `CommunitiesPage` calls `getCommunities()` when it mounts and when Retry increments `requestVersion`.
+3. `frontend/src/api/communities.js` sends `GET /api/communities` and rejects failed or non-array responses.
+4. Vite proxies `/api` to the ASP.NET backend during development.
+5. `CommunitiesController.Get()` reads `ApplicationDbContext.Communities` without tracking, orders by name, projects only `id`, `name`, and `description`, and returns JSON.
+6. `CommunitiesPage` turns the response into loading, success, empty, or error UI through `ResourceState`.
+7. A successful non-empty response is rendered by `CommunityCard`.
 
-## Milestones
+Authentication currently affects controls, not public data:
 
-### M0 — Establish the baseline ✅
+- Discover is public.
+- A guest selecting Joined receives `AuthenticationPrompt`.
+- A signed-in user may select Joined, but it always shows an empty state because memberships do not exist yet.
+- The signed-in Join button is deliberately disabled with `Joining coming next`.
 
-Run the checks and live API flow listed above.
+Known limits in the current screen:
 
-Done: 12 September 2026.
+- Search text is stored but does not filter the returned array.
+- Sort selection is stored but does not sort or refetch anything.
+- Discover and Trending show the same array.
+- No endpoint creates communities; do not add an anonymous write endpoint as a shortcut.
+- No membership table or join/leave endpoint exists.
+- `ProtectedRoute.jsx` is unused.
+- `auth_dev.md` and `implementation_status.md` are stale.
+- `App.css` contains duplicate `community-grid` rules.
 
-### M1 — Remove the tracked database password -- DONE!!!
+## Completed milestones
 
-- [ ] Delete `ConnectionStrings` from `appsettings.json`; keep the local value in .NET User Secrets.
-- [ ] Rotate the exposed value anywhere it was reused.
+| Milestone | Status | Evidence |
+| --- | --- | --- |
+| M0 - Establish baseline | Complete | Auth API flow and builds were previously exercised. |
+| M1 - Remove tracked database password | Code complete | Tracked settings no longer contain a password. Rotation outside the repository still requires owner confirmation. |
+| M2 - Repeatable auth smoke requests | Complete | `DevConnect.Api.http` contains HTTPS register, login, current-user, and logout requests. |
+| M3 - Normalize auth API errors | Complete | `sendAuthRequest()` throws `Error` with backend messages. |
+| M4 - Align signup validation | Complete | Frontend username and length rules match `RegisterRequest`. |
+| M5 - Expose public directory | Behavior complete | `/communities` renders directly; unused `ProtectedRoute.jsx` remains as cleanup. |
+| M6 - Auth-aware Joined tab | Complete | Guests are prompted; signed-in users may select it. |
+| M7 - Auth-aware Join button | Complete | Guests are prompted and signed-in users see an honest disabled state. |
+| M10 - Remove weather template | Complete | Weather source files no longer exist. |
+| M11 - Define `Community` | Complete | Model, `DbSet`, and table migration exist. |
+| M12 - Public communities endpoint | Complete | Anonymous `GET /api/communities` returns projected data. |
+| M13 - Frontend communities client | Complete | `getCommunities()` handles success, HTTP errors, and invalid response shape. |
+| M14 - Community card | Complete | The component renders API name and description only. |
+| M15 - Load the directory | Complete | The page uses real loading, success, empty, retry, and error state. |
 
-Check: the API starts from User Secrets, and no tracked settings file contains `Password=`.
+## Remaining housekeeping
 
-### M2 — Make the auth smoke flow repeatable
+These do not block the next community feature, but should not be forgotten:
 
-- [ ] Replace the weather request in `DevConnect.Api.http` with register, duplicate register, login, `/me`, logout, and logged-out `/me` requests using `https://localhost:7201`.
+- [ ] M8 - Complete the browser auth check: signup, wrong login, correct login, refresh, Remember me, logout, and direct guest/member navigation to `/communities`.
+- [ ] M9 - Replace the stale auth plan/status text with links to `authentication_and_home_flow.md` and this tracker.
+- [ ] Confirm that the previously tracked database credential was rotated anywhere it was reused.
+- [ ] Delete `ProtectedRoute.jsx` while no route uses it.
+- [ ] Remove the duplicate top-level community CSS rules and the `Add the new styles here` comment.
 
-Check: the requests return `200, 400, 200, 200, 200, 401` in that order. Use a fresh email for each run.
+## Next community milestones
 
-### M3 — Fix `sendAuthRequest()`
+### M16 - Make the public directory controls honest
 
-- [ ] Throw an `Error` whose message comes from `data.message`, Identity's `errors` array, or ASP.NET validation's `errors` object.
+- [ ] Filter the already-loaded communities by name and description when `filters.query` changes.
+- [ ] Show the filtered result count.
+- [ ] Remove the inactive sort control and Trending tab until the API has fields that can support them.
+- [ ] Keep the existing backend alphabetical order; do not add another request or dependency.
 
-Check: wrong login shows “Invalid email or password”, and duplicate registration shows the server's duplicate-field messages. Keep this normalization inside the existing function; no new API layer is needed.
+Check: typing part of a name or description narrows the cards, Clear search restores them, and every visible control changes the result.
 
-### M4 — Align `SignUpPage.handleSubmit()`
+### M17 - Add community membership storage
 
-- [ ] Allow letters, numbers, dots, underscores, and hyphens; reject usernames over 30 characters; remove the frontend-only two-character name rule.
+- [ ] Add one `CommunityMembership` entity containing `UserId` and `CommunityId`.
+- [ ] Use a composite primary key or unique constraint so a user cannot join the same community twice.
+- [ ] Add the EF Core relationships and one migration.
+- [ ] Do not add roles, invitations, subscriptions, or notification settings yet.
 
-Check: `dev.user-name` passes client validation, a 31-character username fails before submission, and the API accepts the same values as the page.
+Check: the migration applies, duplicate membership rows are rejected by the database, and deleting a user or community has an intentional relationship behavior.
 
-### M5 — Make `App()` expose the public directory
+### M18 - Add authenticated membership endpoints
 
-- [ ] Render `CommunitiesPage` directly at `/communities`.
-- [ ] Delete `ProtectedRoute.jsx` if no route uses it after this change.
+- [ ] Add an authorized join endpoint for one community.
+- [ ] Add an authorized leave endpoint for one community.
+- [ ] Add an authorized endpoint that returns the current user's joined communities.
+- [ ] Return `404` for an unknown community and make repeated join/leave requests predictable.
+- [ ] Add the smallest automated backend checks for guest rejection, join, duplicate join, joined listing, and leave.
 
-Check: a logged-out visitor can open `/communities`; refreshing the route does not redirect to `/login`.
+Check: a guest receives `401`; a signed-in user can join once, see the community in Joined, leave it, and no longer see it.
 
-### M6 — Fix `CommunitiesPage.handleTabChange()`
+### M19 - Connect membership to the React directory
 
-- [ ] Read the current user from `useAuth()`. Select `joined` for a signed-in user and open `AuthenticationPrompt` only for a guest.
+- [ ] Add join, leave, and joined-community functions beside `getCommunities()` in `frontend/src/api/communities.js`.
+- [ ] Make the Joined tab load the authenticated user's real memberships.
+- [ ] Give each `CommunityCard` a Join or Leave action based on membership state.
+- [ ] Keep `AuthenticationPrompt` for guest join attempts.
+- [ ] Update local state only after a successful server response and display a recoverable error on failure.
 
-Check: guests are prompted from Joined; signed-in users see the Joined empty state without a sign-in prompt.
+Check: join and leave update both the card action and Joined tab without a full page reload; refresh restores the server state.
 
-### M7 — Fix the community join button
+### M20 - Add a read-only community detail page
 
-- [ ] Prompt a guest to authenticate. For a signed-in user, disable the action with honest “Joining coming next” text until the join endpoint exists.
+- [ ] Add `GET /api/communities/{id}` returning only the fields that exist.
+- [ ] Return `404` for an unknown ID.
+- [ ] Add `/communities/:id` and make each card link to it.
+- [ ] Reuse the membership action from M19 instead of implementing a second version.
 
-Check: a signed-in user is never shown “Sign in required”.
+Check: a guest can open a valid detail URL, an invalid ID shows a clear not-found state, and a signed-in user sees the same join state as the directory.
 
-### M8 — Verify `AuthProvider()` in the browser
+### M21 - Add real discovery metadata only when required
 
-- [ ] Test signup, wrong login, correct login, refresh, Remember me, logout, and direct navigation to `/communities` as both guest and member.
+Do this only after real product data exists for the feature:
 
-Check: record the pass/fail result here. Only change `AuthProvider()` if this check finds a defect.
+- [ ] Add timestamps before restoring Newest sorting.
+- [ ] Add membership counts before restoring Members sorting.
+- [ ] Define an activity signal before restoring Activity sorting or Trending.
+- [ ] Move search/sort to the backend and add pagination when loading the whole directory becomes measurably unsuitable.
 
-### M9 — Reconcile the auth documentation
+Check: every restored option maps to a stored value and produces a deterministic API result.
 
-- [ ] Update `auth_dev.md` to PostgreSQL, `/register`, and the actual file paths; mark completed items.
-- [ ] Update `implementation_status.md` with the browser-test result and link to this milestone list.
+## Intentionally deferred
 
-Check: neither document lists implemented frontend authentication as pending.
-
-### M10 — Remove the weather template
-
-- [ ] Delete `WeatherForecastController.cs` and `WeatherForecast.cs` after M2 replaces their only smoke request.
-
-Check: backend build still passes and `/weatherforecast` returns `404`.
-
-## First feature after stabilization: public communities
-
-Do not build joining, posts, administration, or recommendations yet. The first useful slice is a read-only directory.
-
-### M11 — Define `Community`
-
-- [ ] Add only id, name, and description, register the entity with `ApplicationDbContext`, and add the EF migration.
-
-Check: the migration applies to an empty development database.
-
-### M12 — Add `CommunitiesController.Get()`
-
-- [ ] Return id, name, and description from `GET /api/communities` with no write operations.
-
-Check: an anonymous request returns `200` and an empty JSON array when the database has no communities.
-
-### M13 — Add frontend `getCommunities()`
-
-- [ ] Fetch `/api/communities` with the existing request style and surface non-success responses as `Error` instances.
-
-Check: the function handles success and failure without adding a new HTTP dependency.
-
-### M14 — Add `CommunityCard()`
-
-- [ ] Render the API's name and description using the existing card styles. Leave member count, tags, and activity out until their data exists.
-
-Check: one supplied community renders without hard-coded community data.
-
-### M15 — Load data in `CommunitiesPage`
-
-- [ ] Replace the fixed `status="empty"` with loading, success, empty, and error state derived from `getCommunities()`, rendering `CommunityCard` on success.
-
-Check: the existing skeleton, empty state, and error state each render from a real request outcome.
+Posts, comments, community administration, invitations, private communities, roles, recommendations, and notifications are outside the next slice. Add them after membership and community detail work are complete.
