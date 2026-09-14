@@ -125,3 +125,9 @@ Accept: application/json
 Cookie: {{finalLogout.response.headers.Set-Cookie}}
 
 ###
+
+### M12 — Get public communities
+GET {{DevConnect.Api_HostAddress}}/api/communities
+Accept: application/json
+
+###
