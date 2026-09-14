@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { getCommunities } from '../api/communities.js'
 import AppHeader from '../components/AppHeader.jsx'
 import AuthenticationPrompt from '../components/AuthenticationPrompt.jsx'
+import CommunityCard from '../components/CommunityCard.jsx'
 import {
     CommunityCardSkeleton,
     EmptyState,
@@ -11,7 +13,7 @@ import Icon from '../components/Icon.jsx'
 import Tabs from '../components/Tabs.jsx'
 import { useAuth } from '../context/useAuth.js'
 
-const directoryTabs = [
+const baseDirectoryTabs = [
     { id: 'joined', label: 'Joined' },
     { id: 'discover', label: 'Discover' },
     { id: 'trending', label: 'Trending' },
@@ -26,53 +28,100 @@ function CommunitiesPage() {
         sort: 'activity',
     })
 
+    const [communities, setCommunities] = useState([])
+    const [directoryStatus, setDirectoryStatus] =
+        useState('loading')
+    const [directoryError, setDirectoryError] = useState('')
+    const [requestVersion, setRequestVersion] = useState(0)
+
     const { user, isLoading } = useAuth()
 
-    // If the user logs out while viewing Joined,
-    // return them to the public Discover tab.
-    
-    const tabsWithAuthState = directoryTabs.map((tab) => {
-        if (tab.id !== 'joined') {
-            return tab
+    useEffect(() => {
+        let active = true
+
+        async function loadCommunities() {
+            try {
+                const result = await getCommunities()
+
+                if (!active) {
+                    return
+                }
+
+                setCommunities(result)
+                setDirectoryStatus(
+                    result.length === 0 ? 'empty' : 'success',
+                )
+            } catch (error) {
+                if (!active) {
+                    return
+                }
+
+                setCommunities([])
+                setDirectoryError(
+                    error instanceof Error
+                        ? error.message
+                        : 'The communities directory could not be loaded.',
+                )
+                setDirectoryStatus('error')
+            }
         }
 
-        return {
-            ...tab,
-            badge:
-                !isLoading && !user
-                    ? 'Sign in'
-                    : undefined,
+        loadCommunities()
+
+        return () => {
+            active = false
         }
+    }, [requestVersion])
+
+    const tabs = baseDirectoryTabs.map((tab) => {
+        if (
+            tab.id === 'joined' &&
+            !isLoading &&
+            !user
+        ) {
+            return {
+                ...tab,
+                badge: 'Sign in',
+            }
+        }
+
+        return tab
     })
 
+    // If the user logs out while viewing Joined,
+    // display the public Discover tab.
+    const visibleActiveTab =
+        !user && activeTab === 'joined'
+            ? 'discover'
+            : activeTab
+
+    const visibleStatus =
+        visibleActiveTab === 'joined'
+            ? 'empty'
+            : directoryStatus
+
     const handleTabChange = (tab) => {
-        if (isLoading) {
-            return
-        }
-
         if (tab.id === 'joined' && !user) {
-            setShowPrompt(true)
+            if (!isLoading) {
+                setShowPrompt(true)
+            }
+
             return
         }
 
-        setShowPrompt(false)
         setActiveTab(tab.id)
     }
 
+    const handleRetry = () => {
+        setDirectoryError('')
+        setDirectoryStatus('loading')
+        setRequestVersion((current) => current + 1)
+    }
+
     const handleJoinClick = () => {
-        if (isLoading) {
-            return
-        }
-
-        if (!user) {
+        if (!isLoading && !user) {
             setShowPrompt(true)
-            return
         }
-
-        // A logged-in user can browse the directory
-        // without seeing an authentication prompt.
-        setShowPrompt(false)
-        setActiveTab('discover')
     }
 
     const clearFilters = () => {
@@ -83,16 +132,16 @@ function CommunitiesPage() {
     }
 
     const emptyTitle =
-        activeTab === 'joined'
-            ? 'No joined communities yet'
+        visibleActiveTab === 'joined'
+            ? 'No joined communities'
             : 'No communities available'
 
     const emptyMessage =
-        activeTab === 'joined'
+        visibleActiveTab === 'joined'
             ? 'Communities you join will appear here.'
             : filters.query
                 ? 'No communities match your current search. Try a different term.'
-                : 'Public communities will appear here when the directory is connected.'
+                : 'Public communities will appear here when they are added.'
 
     return (
         <div className="page-shell">
@@ -158,11 +207,9 @@ function CommunitiesPage() {
                             <option value="activity">
                                 Sort by activity
                             </option>
-
                             <option value="newest">
                                 Sort by newest
                             </option>
-
                             <option value="members">
                                 Sort by members
                             </option>
@@ -173,33 +220,26 @@ function CommunitiesPage() {
                 </form>
 
                 <Tabs
-                    tabs={tabsWithAuthState}
-                    activeTab={activeTab}
-                    onChange={handleTabChange}
+                    activeTab={visibleActiveTab}
                     label="Community directory views"
+                    onChange={handleTabChange}
+                    tabs={tabs}
                 />
 
                 <section
-                    aria-labelledby={`${activeTab}-tab`}
+                    aria-labelledby={`${visibleActiveTab}-tab`}
                     className="directory-results"
                     role="tabpanel"
                 >
                     <div className="results-meta">
                         <p aria-live="polite">
-                            {activeTab === 'joined'
-                                ? 'Your joined communities'
-                                : 'Community results'}
+                            Community results
                         </p>
-
-                        <span>
-                            {activeTab === 'joined'
-                                ? 'Your memberships'
-                                : 'Public directory'}
-                        </span>
+                        <span>Public directory</span>
                     </div>
 
                     <ResourceState
-                        status="empty"
+                        status={visibleStatus}
                         loading={
                             <div className="community-grid">
                                 <CommunityCardSkeleton />
@@ -209,12 +249,9 @@ function CommunitiesPage() {
                         }
                         empty={
                             <EmptyState
-                                icon="compass"
-                                title={emptyTitle}
-                                message={emptyMessage}
                                 action={
-                                    activeTab !== 'joined' &&
-                                        filters.query ? (
+                                    filters.query &&
+                                        visibleActiveTab !== 'joined' ? (
                                         <button
                                             className="button button--secondary button--small"
                                             onClick={clearFilters}
@@ -224,15 +261,34 @@ function CommunitiesPage() {
                                         </button>
                                     ) : undefined
                                 }
+                                icon={
+                                    visibleActiveTab === 'joined'
+                                        ? 'users'
+                                        : 'compass'
+                                }
+                                message={emptyMessage}
+                                title={emptyTitle}
                             />
                         }
                         error={
                             <ErrorState
-                                message="The communities directory could not be loaded."
-                                onRetry={clearFilters}
+                                message={
+                                    directoryError ||
+                                    'The communities directory could not be loaded.'
+                                }
+                                onRetry={handleRetry}
                             />
                         }
-                    />
+                    >
+                        <div className="community-grid">
+                            {communities.map((community) => (
+                                <CommunityCard
+                                    community={community}
+                                    key={community.id}
+                                />
+                            ))}
+                        </div>
+                    </ResourceState>
                 </section>
 
                 <section className="directory-cta">
@@ -253,13 +309,15 @@ function CommunitiesPage() {
 
                     <button
                         className="button button--primary"
-                        disabled={isLoading}
+                        disabled={isLoading || Boolean(user)}
                         onClick={handleJoinClick}
                         type="button"
                     >
-                        {user
-                            ? 'Browse communities'
-                            : 'Join a community'}
+                        {isLoading
+                            ? 'Checking session...'
+                            : user
+                                ? 'Joining coming next'
+                                : 'Join a community'}
 
                         <Icon name="arrowRight" size={18} />
                     </button>

@@ -97,9 +97,24 @@ export function ErrorState({ title = 'Unable to load content', message, onRetry 
   )
 }
 
-export function ResourceState({ status, loading, empty, error, children }) {
-  if (status === 'loading') return loading
-  if (status === 'error') return error
-  if (status === 'empty') return empty
-  return children
+export function ResourceState({
+    status,
+    loading,
+    empty,
+    error,
+    children,
+}) {
+    if (status === 'loading') {
+        return loading
+    }
+
+    if (status === 'empty') {
+        return empty
+    }
+
+    if (status === 'error') {
+        return error
+    }
+
+    return children
 }
