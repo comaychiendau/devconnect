@@ -1,46 +1,81 @@
-function getErrorMessage(data, status) {
+function getErrorMessage(data, fallbackMessage) {
     if (typeof data === 'string' && data.trim()) {
         return data
     }
 
-    return (
-        data?.message ||
-        data?.title ||
-        `Unable to load communities. Server returned ${status}.`
-    )
+    if (data?.message) {
+        return data.message
+    }
+
+    if (data?.errors) {
+        const errorMessages = Object.values(data.errors)
+            .flat()
+            .filter(Boolean)
+
+        if (errorMessages.length > 0) {
+            return errorMessages.join(' ')
+        }
+    }
+
+    return fallbackMessage
 }
 
-export async function getCommunities() {
-    const response = await fetch('/api/communities', {
-        method: 'GET',
+async function sendCommunityRequest(path, options = {}) {
+    const response = await fetch(path, {
+        ...options,
         credentials: 'include',
         headers: {
             Accept: 'application/json',
+            ...(options.headers ?? {}),
         },
     })
 
-    const text = await response.text()
+    const responseText = await response.text()
+
     let data = null
 
-    if (text) {
+    if (responseText) {
         try {
-            data = JSON.parse(text)
+            data = JSON.parse(responseText)
         } catch {
-            data = text
+            data = responseText
         }
     }
 
     if (!response.ok) {
         throw new Error(
-            getErrorMessage(data, response.status),
-        )
-    }
-
-    if (!Array.isArray(data)) {
-        throw new Error(
-            'The server returned an invalid communities response.',
+            getErrorMessage(
+                data,
+                `Community request failed (${response.status}).`,
+            ),
         )
     }
 
     return data
+}
+
+export function getCommunities() {
+    return sendCommunityRequest('/api/communities')
+}
+
+export function getJoinedCommunities() {
+    return sendCommunityRequest('/api/communities/joined')
+}
+
+export function joinCommunity(communityId) {
+    return sendCommunityRequest(
+        `/api/communities/${communityId}/join`,
+        {
+            method: 'POST',
+        },
+    )
+}
+
+export function leaveCommunity(communityId) {
+    return sendCommunityRequest(
+        `/api/communities/${communityId}/leave`,
+        {
+            method: 'DELETE',
+        },
+    )
 }
