@@ -47,15 +47,21 @@ function CommunitiesPage() {
     const [joinedRequestVersion, setJoinedRequestVersion] =
         useState(0)
 
-    // Join/leave request state
+    // Join and leave request state
     const [pendingCommunityId, setPendingCommunityId] =
         useState(null)
     const [membershipError, setMembershipError] =
         useState('')
 
+    // Community selected for leave confirmation
+    const [
+        communityPendingLeave,
+        setCommunityPendingLeave,
+    ] = useState(null)
+
     const { user, isLoading } = useAuth()
 
-    // Load the public community directory.
+    // Load all public communities.
     useEffect(() => {
         let active = true
 
@@ -94,7 +100,7 @@ function CommunitiesPage() {
         }
     }, [requestVersion])
 
-    // Load the signed-in user's real memberships.
+    // Load the signed-in user's memberships.
     useEffect(() => {
         if (isLoading || !user) {
             return undefined
@@ -152,8 +158,7 @@ function CommunitiesPage() {
         return tab
     })
 
-    // If the user logs out while viewing Joined,
-    // show the public Discover tab.
+    // Show Discover if the user logs out while viewing Joined.
     const visibleActiveTab =
         !user && activeTab === 'joined'
             ? 'discover'
@@ -205,7 +210,6 @@ function CommunitiesPage() {
 
     const visibleResultCount = filteredCommunities.length
 
-    // This Set makes membership checks simple and quick.
     const joinedCommunityIds = new Set(
         joinedCommunities.map((community) => community.id),
     )
@@ -266,7 +270,7 @@ function CommunitiesPage() {
         setMembershipError('')
 
         try {
-            // Wait for the server before changing local state.
+            // Update local state only after server success.
             await joinCommunity(community.id)
 
             setJoinedCommunities((current) => {
@@ -305,7 +309,7 @@ function CommunitiesPage() {
         setMembershipError('')
 
         try {
-            // Wait for the server before changing local state.
+            // Update local state only after server success.
             await leaveCommunity(community.id)
 
             const remainingCommunities =
@@ -315,6 +319,7 @@ function CommunitiesPage() {
                 )
 
             setJoinedCommunities(remainingCommunities)
+
             setJoinedStatus(
                 remainingCommunities.length === 0
                     ? 'empty'
@@ -329,6 +334,32 @@ function CommunitiesPage() {
         } finally {
             setPendingCommunityId(null)
         }
+    }
+
+    // Open the warning instead of leaving immediately.
+    const handleLeaveRequest = (community) => {
+        if (pendingCommunityId !== null) {
+            return
+        }
+
+        setMembershipError('')
+        setCommunityPendingLeave(community)
+    }
+
+    const handleCancelLeave = () => {
+        setCommunityPendingLeave(null)
+    }
+
+    const handleConfirmLeave = async () => {
+        if (!communityPendingLeave) {
+            return
+        }
+
+        const community = communityPendingLeave
+
+        setCommunityPendingLeave(null)
+
+        await handleLeave(community)
     }
 
     const handleJoinClick = () => {
@@ -521,7 +552,7 @@ function CommunitiesPage() {
                                     }
                                     key={community.id}
                                     onJoin={handleJoin}
-                                    onLeave={handleLeave}
+                                    onLeave={handleLeaveRequest}
                                 />
                             ))}
                         </div>
@@ -560,6 +591,58 @@ function CommunitiesPage() {
                     </button>
                 </section>
             </main>
+
+            {communityPendingLeave && (
+                <div className="dialog-backdrop">
+                    <section
+                        aria-describedby="leave-community-description"
+                        aria-labelledby="leave-community-title"
+                        aria-modal="true"
+                        className="dialog"
+                        role="alertdialog"
+                    >
+                        <button
+                            aria-label="Close leave confirmation"
+                            className="icon-button dialog__close"
+                            onClick={handleCancelLeave}
+                            type="button"
+                        >
+                            <Icon name="close" size={20} />
+                        </button>
+
+                        <div className="dialog__icon dialog__icon--warning">
+                            <Icon name="alert" size={26} />
+                        </div>
+
+                        <h2 id="leave-community-title">
+                            Leave {communityPendingLeave.name}?
+                        </h2>
+
+                        <p id="leave-community-description">
+                            This community will be removed from your Joined
+                            tab. You can join it again later.
+                        </p>
+
+                        <div className="dialog__actions">
+                            <button
+                                className="button button--secondary"
+                                onClick={handleCancelLeave}
+                                type="button"
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                className="button button--danger"
+                                onClick={handleConfirmLeave}
+                                type="button"
+                            >
+                                Leave community
+                            </button>
+                        </div>
+                    </section>
+                </div>
+            )}
 
             <AuthenticationPrompt
                 action="view joined communities or join a new one"
