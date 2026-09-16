@@ -26,6 +26,11 @@
     font-size: 0.9rem;
     line-height: 1.6;
 }
+.community-card__actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 1rem;
+}
 
 .brand {
   display: inline-flex;
