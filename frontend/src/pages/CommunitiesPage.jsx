@@ -1,10 +1,5 @@
 import { useEffect, useState } from 'react'
-import {
-    getCommunities,
-    getJoinedCommunities,
-    joinCommunity,
-    leaveCommunity,
-} from '../api/communities.js'
+import { getCommunities } from '../api/communities.js'
 import AppHeader from '../components/AppHeader.jsx'
 import AuthenticationPrompt from '../components/AuthenticationPrompt.jsx'
 import CommunityCard from '../components/CommunityCard.jsx'
@@ -16,7 +11,7 @@ import {
 } from '../components/DataState.jsx'
 import Icon from '../components/Icon.jsx'
 import Tabs from '../components/Tabs.jsx'
-import { useAuth } from '../context/useAuth.js'
+import { useCommunityMemberships } from '../hooks/useCommunityMemberships.js'
 
 const baseDirectoryTabs = [
     { id: 'joined', label: 'Joined' },
@@ -31,35 +26,35 @@ function CommunitiesPage() {
         query: '',
     })
 
-    // Public communities
+    // Public directory state
     const [communities, setCommunities] = useState([])
     const [directoryStatus, setDirectoryStatus] =
         useState('loading')
     const [directoryError, setDirectoryError] = useState('')
     const [requestVersion, setRequestVersion] = useState(0)
 
-    // Current user's memberships
-    const [joinedCommunities, setJoinedCommunities] =
-        useState([])
-    const [joinedStatus, setJoinedStatus] =
-        useState('loading')
-    const [joinedError, setJoinedError] = useState('')
-    const [joinedRequestVersion, setJoinedRequestVersion] =
-        useState(0)
-
-    // Join and leave request state
-    const [pendingCommunityId, setPendingCommunityId] =
-        useState(null)
-    const [membershipError, setMembershipError] =
-        useState('')
-
-    // Community selected for leave confirmation
+    // Leave-confirmation state
     const [
         communityPendingLeave,
         setCommunityPendingLeave,
     ] = useState(null)
 
-    const { user, isLoading } = useAuth()
+    // Shared membership logic
+    const {
+        actionError: membershipError,
+        clearActionError,
+        isAuthLoading: isLoading,
+        isJoined,
+        join,
+        joinedCommunities,
+        joinedError,
+        joinedStatus,
+        leave,
+        membershipStateReady,
+        pendingCommunityId,
+        retryJoinedCommunities,
+        user,
+    } = useCommunityMemberships()
 
     // Load all public communities.
     useEffect(() => {
@@ -100,49 +95,6 @@ function CommunitiesPage() {
         }
     }, [requestVersion])
 
-    // Load the signed-in user's memberships.
-    useEffect(() => {
-        if (isLoading || !user) {
-            return undefined
-        }
-
-        let active = true
-
-        async function loadJoinedCommunities() {
-            try {
-                const result = await getJoinedCommunities()
-
-                if (!active) {
-                    return
-                }
-
-                setJoinedCommunities(result)
-                setJoinedError('')
-                setJoinedStatus(
-                    result.length === 0 ? 'empty' : 'success',
-                )
-            } catch (error) {
-                if (!active) {
-                    return
-                }
-
-                setJoinedCommunities([])
-                setJoinedError(
-                    error instanceof Error
-                        ? error.message
-                        : 'Your joined communities could not be loaded.',
-                )
-                setJoinedStatus('error')
-            }
-        }
-
-        loadJoinedCommunities()
-
-        return () => {
-            active = false
-        }
-    }, [isLoading, user, joinedRequestVersion])
-
     const tabs = baseDirectoryTabs.map((tab) => {
         if (
             tab.id === 'joined' &&
@@ -158,7 +110,7 @@ function CommunitiesPage() {
         return tab
     })
 
-    // Show Discover if the user logs out while viewing Joined.
+    // Return a logged-out user to Discover.
     const visibleActiveTab =
         !user && activeTab === 'joined'
             ? 'discover'
@@ -210,15 +162,6 @@ function CommunitiesPage() {
 
     const visibleResultCount = filteredCommunities.length
 
-    const joinedCommunityIds = new Set(
-        joinedCommunities.map((community) => community.id),
-    )
-
-    const membershipStateReady =
-        !user ||
-        joinedStatus === 'success' ||
-        joinedStatus === 'empty'
-
     const handleTabChange = (tab) => {
         if (tab.id === 'joined' && !user) {
             if (!isLoading) {
@@ -237,15 +180,9 @@ function CommunitiesPage() {
         setRequestVersion((current) => current + 1)
     }
 
-    const handleJoinedRetry = () => {
-        setJoinedError('')
-        setJoinedStatus('loading')
-        setJoinedRequestVersion((current) => current + 1)
-    }
-
     const handleRetry = () => {
         if (visibleActiveTab === 'joined') {
-            handleJoinedRetry()
+            retryJoinedCommunities()
             return
         }
 
@@ -262,87 +199,19 @@ function CommunitiesPage() {
             return
         }
 
-        if (pendingCommunityId !== null) {
-            return
-        }
-
-        setPendingCommunityId(community.id)
-        setMembershipError('')
-
-        try {
-            // Update local state only after server success.
-            await joinCommunity(community.id)
-
-            setJoinedCommunities((current) => {
-                const alreadyJoined = current.some(
-                    (joinedCommunity) =>
-                        joinedCommunity.id === community.id,
-                )
-
-                if (alreadyJoined) {
-                    return current
-                }
-
-                return [...current, community].sort((left, right) =>
-                    left.name.localeCompare(right.name),
-                )
-            })
-
-            setJoinedStatus('success')
-        } catch (error) {
-            setMembershipError(
-                error instanceof Error
-                    ? error.message
-                    : 'The community could not be joined. Please try again.',
-            )
-        } finally {
-            setPendingCommunityId(null)
-        }
+        await join(community)
     }
 
     const handleLeave = async (community) => {
-        if (!user || pendingCommunityId !== null) {
-            return
-        }
-
-        setPendingCommunityId(community.id)
-        setMembershipError('')
-
-        try {
-            // Update local state only after server success.
-            await leaveCommunity(community.id)
-
-            const remainingCommunities =
-                joinedCommunities.filter(
-                    (joinedCommunity) =>
-                        joinedCommunity.id !== community.id,
-                )
-
-            setJoinedCommunities(remainingCommunities)
-
-            setJoinedStatus(
-                remainingCommunities.length === 0
-                    ? 'empty'
-                    : 'success',
-            )
-        } catch (error) {
-            setMembershipError(
-                error instanceof Error
-                    ? error.message
-                    : 'The community could not be left. Please try again.',
-            )
-        } finally {
-            setPendingCommunityId(null)
-        }
+        await leave(community)
     }
 
-    // Open the warning instead of leaving immediately.
     const handleLeaveRequest = (community) => {
         if (pendingCommunityId !== null) {
             return
         }
 
-        setMembershipError('')
+        clearActionError()
         setCommunityPendingLeave(community)
     }
 
@@ -448,7 +317,7 @@ function CommunitiesPage() {
 
                         <button
                             className="button button--ghost button--small"
-                            onClick={() => setMembershipError('')}
+                            onClick={clearActionError}
                             type="button"
                         >
                             Dismiss
@@ -466,7 +335,7 @@ function CommunitiesPage() {
 
                             <button
                                 className="button button--secondary button--small"
-                                onClick={handleJoinedRetry}
+                                onClick={retryJoinedCommunities}
                                 type="button"
                             >
                                 Retry memberships
@@ -544,9 +413,7 @@ function CommunitiesPage() {
                                         !membershipStateReady ||
                                         pendingCommunityId !== null
                                     }
-                                    isJoined={joinedCommunityIds.has(
-                                        community.id,
-                                    )}
+                                    isJoined={isJoined(community.id)}
                                     isUpdating={
                                         pendingCommunityId === community.id
                                     }
