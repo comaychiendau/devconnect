@@ -68,6 +68,35 @@ public class CommunitiesController(
         return Ok(communities);
     }
 
+    [HttpGet("{id:int}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetById(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var community = await dbContext.Communities
+            .AsNoTracking()
+            .Where(community => community.Id == id)
+            .Select(community => new
+            {
+                community.Id,
+                community.Name,
+                community.Description,
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (community is null)
+        {
+            return NotFound(new
+            {
+                message = "Community not found.",
+            });
+        }
+        return Ok(community);
+    }
+
+
+
     [HttpPost("{communityId:int}/join")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
