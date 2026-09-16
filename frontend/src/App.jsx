@@ -4,6 +4,7 @@ import CommunitiesPage from './pages/CommunitiesPage.jsx'
 import GuestHomePage from './pages/GuestHomePage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import SignUpPage from './pages/SignUpPage.jsx'
+import CommunityDetailPage from './pages/CommunityDetailPage.jsx'
 
 function App() {
     return (
@@ -14,6 +15,10 @@ function App() {
             <Route
                 path="/communities"
                 element={<CommunitiesPage />}
+            />
+            <Route
+                path="/communities/:id"
+                element={<CommunityDetailPage />}
             />
             <Route
                 path="*"

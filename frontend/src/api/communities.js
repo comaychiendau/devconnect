@@ -43,12 +43,16 @@ async function sendCommunityRequest(path, options = {}) {
     }
 
     if (!response.ok) {
-        throw new Error(
+        const error = new Error(
             getErrorMessage(
                 data,
                 `Community request failed (${response.status}).`,
             ),
         )
+
+        error.status = response.status
+
+        throw error
     }
 
     return data
@@ -56,6 +60,11 @@ async function sendCommunityRequest(path, options = {}) {
 
 export function getCommunities() {
     return sendCommunityRequest('/api/communities')
+}
+export function getCommunity(communityId) {
+    return sendCommunityRequest(
+        `/api/communities/${communityId}`,
+    )
 }
 
 export function getJoinedCommunities() {

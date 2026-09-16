@@ -32,6 +32,48 @@
     margin-top: 1rem;
 }
 
+.community-detail-page {
+    width: min(100%, 960px);
+    margin: 0 auto;
+    padding: 48px 40px 80px;
+}
+
+.community-detail-back {
+    display: inline-flex;
+    margin-bottom: 24px;
+    color: var(--slate-600);
+    font-weight: 700;
+}
+
+    .community-detail-back:hover {
+        color: var(--indigo-700);
+    }
+
+.community-detail-card {
+    padding: clamp(28px, 5vw, 52px);
+}
+
+    .community-detail-card h1 {
+        margin: 8px 0 16px;
+        color: var(--slate-950);
+        font-size: clamp(2rem, 5vw, 3.5rem);
+        letter-spacing: -0.04em;
+    }
+
+.community-detail-description {
+    max-width: 720px;
+    margin: 0;
+    color: var(--slate-600);
+    font-size: 1.05rem;
+    line-height: 1.7;
+}
+
+@media (max-width: 640px) {
+    .community-detail-page {
+        padding: 32px 20px 64px;
+    }
+}
+
 .button--danger {
     color: #fff;
     background: var(--error);
