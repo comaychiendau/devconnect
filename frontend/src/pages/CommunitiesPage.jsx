@@ -1,5 +1,10 @@
 import { useEffect, useState } from 'react'
-import { getCommunities } from '../api/communities.js'
+import {
+    getCommunities,
+    getJoinedCommunities,
+    joinCommunity,
+    leaveCommunity,
+} from '../api/communities.js'
 import AppHeader from '../components/AppHeader.jsx'
 import AuthenticationPrompt from '../components/AuthenticationPrompt.jsx'
 import CommunityCard from '../components/CommunityCard.jsx'
@@ -16,7 +21,7 @@ import { useAuth } from '../context/useAuth.js'
 const baseDirectoryTabs = [
     { id: 'joined', label: 'Joined' },
     { id: 'discover', label: 'Discover' },
-] //remove trending because the API does not have activity information so cant decide which communities are trending
+]
 
 function CommunitiesPage() {
     const [activeTab, setActiveTab] = useState('discover')
@@ -26,14 +31,31 @@ function CommunitiesPage() {
         query: '',
     })
 
+    // Public communities
     const [communities, setCommunities] = useState([])
     const [directoryStatus, setDirectoryStatus] =
         useState('loading')
     const [directoryError, setDirectoryError] = useState('')
     const [requestVersion, setRequestVersion] = useState(0)
 
+    // Current user's memberships
+    const [joinedCommunities, setJoinedCommunities] =
+        useState([])
+    const [joinedStatus, setJoinedStatus] =
+        useState('loading')
+    const [joinedError, setJoinedError] = useState('')
+    const [joinedRequestVersion, setJoinedRequestVersion] =
+        useState(0)
+
+    // Join/leave request state
+    const [pendingCommunityId, setPendingCommunityId] =
+        useState(null)
+    const [membershipError, setMembershipError] =
+        useState('')
+
     const { user, isLoading } = useAuth()
 
+    // Load the public community directory.
     useEffect(() => {
         let active = true
 
@@ -46,6 +68,7 @@ function CommunitiesPage() {
                 }
 
                 setCommunities(result)
+                setDirectoryError('')
                 setDirectoryStatus(
                     result.length === 0 ? 'empty' : 'success',
                 )
@@ -71,6 +94,49 @@ function CommunitiesPage() {
         }
     }, [requestVersion])
 
+    // Load the signed-in user's real memberships.
+    useEffect(() => {
+        if (isLoading || !user) {
+            return undefined
+        }
+
+        let active = true
+
+        async function loadJoinedCommunities() {
+            try {
+                const result = await getJoinedCommunities()
+
+                if (!active) {
+                    return
+                }
+
+                setJoinedCommunities(result)
+                setJoinedError('')
+                setJoinedStatus(
+                    result.length === 0 ? 'empty' : 'success',
+                )
+            } catch (error) {
+                if (!active) {
+                    return
+                }
+
+                setJoinedCommunities([])
+                setJoinedError(
+                    error instanceof Error
+                        ? error.message
+                        : 'Your joined communities could not be loaded.',
+                )
+                setJoinedStatus('error')
+            }
+        }
+
+        loadJoinedCommunities()
+
+        return () => {
+            active = false
+        }
+    }, [isLoading, user, joinedRequestVersion])
+
     const tabs = baseDirectoryTabs.map((tab) => {
         if (
             tab.id === 'joined' &&
@@ -87,38 +153,67 @@ function CommunitiesPage() {
     })
 
     // If the user logs out while viewing Joined,
-    // display the public Discover tab.
+    // show the public Discover tab.
     const visibleActiveTab =
         !user && activeTab === 'joined'
             ? 'discover'
             : activeTab
-    //filter the communities based on the active tab and search query
-    // const visibleStatus =
-    //     visibleActiveTab === 'joined'
-    //         ? 'empty'
-    //         : directoryStatus
 
-    const normalizedQuery = filters.query.trim().toLowerCase()
+    const sourceCommunities =
+        visibleActiveTab === 'joined'
+            ? joinedCommunities
+            : communities
 
-    const filteredCommunities = communities.filter((community) => {
-        if (!normalizedQuery) {
-            return true
-        }
-        const name = community.name?.toLowerCase() ?? ''
-        const description = community.description?.toLowerCase() ?? ''
+    const sourceStatus =
+        visibleActiveTab === 'joined'
+            ? joinedStatus
+            : directoryStatus
 
-        return (
-            name.includes(normalizedQuery) ||
-            description.includes(normalizedQuery)
-        )
-    },
+    const visibleError =
+        visibleActiveTab === 'joined'
+            ? joinedError
+            : directoryError
+
+    const normalizedQuery = filters.query
+        .trim()
+        .toLowerCase()
+
+    const filteredCommunities = sourceCommunities.filter(
+        (community) => {
+            if (!normalizedQuery) {
+                return true
+            }
+
+            const name =
+                community.name?.toLowerCase() ?? ''
+
+            const description =
+                community.description?.toLowerCase() ?? ''
+
+            return (
+                name.includes(normalizedQuery) ||
+                description.includes(normalizedQuery)
+            )
+        },
     )
 
-    const filteredDirectoryStatus = directoryStatus === 'success' && filteredCommunities.length === 0 ? 'empty' : directoryStatus
+    const visibleStatus =
+        sourceStatus === 'success' &&
+            filteredCommunities.length === 0
+            ? 'empty'
+            : sourceStatus
 
-    const visibleStatus = visibleActiveTab === 'joined' ? 'empty' : filteredDirectoryStatus
+    const visibleResultCount = filteredCommunities.length
 
-    const visibleResultCount = visibleActiveTab === 'joined' ? 0 : filteredCommunities.length
+    // This Set makes membership checks simple and quick.
+    const joinedCommunityIds = new Set(
+        joinedCommunities.map((community) => community.id),
+    )
+
+    const membershipStateReady =
+        !user ||
+        joinedStatus === 'success' ||
+        joinedStatus === 'empty'
 
     const handleTabChange = (tab) => {
         if (tab.id === 'joined' && !user) {
@@ -132,10 +227,108 @@ function CommunitiesPage() {
         setActiveTab(tab.id)
     }
 
-    const handleRetry = () => {
+    const handleDirectoryRetry = () => {
         setDirectoryError('')
         setDirectoryStatus('loading')
         setRequestVersion((current) => current + 1)
+    }
+
+    const handleJoinedRetry = () => {
+        setJoinedError('')
+        setJoinedStatus('loading')
+        setJoinedRequestVersion((current) => current + 1)
+    }
+
+    const handleRetry = () => {
+        if (visibleActiveTab === 'joined') {
+            handleJoinedRetry()
+            return
+        }
+
+        handleDirectoryRetry()
+    }
+
+    const handleJoin = async (community) => {
+        if (isLoading) {
+            return
+        }
+
+        if (!user) {
+            setShowPrompt(true)
+            return
+        }
+
+        if (pendingCommunityId !== null) {
+            return
+        }
+
+        setPendingCommunityId(community.id)
+        setMembershipError('')
+
+        try {
+            // Wait for the server before changing local state.
+            await joinCommunity(community.id)
+
+            setJoinedCommunities((current) => {
+                const alreadyJoined = current.some(
+                    (joinedCommunity) =>
+                        joinedCommunity.id === community.id,
+                )
+
+                if (alreadyJoined) {
+                    return current
+                }
+
+                return [...current, community].sort((left, right) =>
+                    left.name.localeCompare(right.name),
+                )
+            })
+
+            setJoinedStatus('success')
+        } catch (error) {
+            setMembershipError(
+                error instanceof Error
+                    ? error.message
+                    : 'The community could not be joined. Please try again.',
+            )
+        } finally {
+            setPendingCommunityId(null)
+        }
+    }
+
+    const handleLeave = async (community) => {
+        if (!user || pendingCommunityId !== null) {
+            return
+        }
+
+        setPendingCommunityId(community.id)
+        setMembershipError('')
+
+        try {
+            // Wait for the server before changing local state.
+            await leaveCommunity(community.id)
+
+            const remainingCommunities =
+                joinedCommunities.filter(
+                    (joinedCommunity) =>
+                        joinedCommunity.id !== community.id,
+                )
+
+            setJoinedCommunities(remainingCommunities)
+            setJoinedStatus(
+                remainingCommunities.length === 0
+                    ? 'empty'
+                    : 'success',
+            )
+        } catch (error) {
+            setMembershipError(
+                error instanceof Error
+                    ? error.message
+                    : 'The community could not be left. Please try again.',
+            )
+        } finally {
+            setPendingCommunityId(null)
+        }
     }
 
     const handleJoinClick = () => {
@@ -150,17 +343,17 @@ function CommunitiesPage() {
         })
     }
 
-    const emptyTitle =
-        visibleActiveTab === 'joined'
+    const emptyTitle = filters.query
+        ? 'No matching communities'
+        : visibleActiveTab === 'joined'
             ? 'No joined communities'
             : 'No communities available'
 
-    const emptyMessage =
-        visibleActiveTab === 'joined'
+    const emptyMessage = filters.query
+        ? 'No communities match your current search. Try a different term.'
+        : visibleActiveTab === 'joined'
             ? 'Communities you join will appear here.'
-            : filters.query
-                ? 'No communities match your current search. Try a different term.'
-                : 'Public communities will appear here when they are added.'
+            : 'Public communities will appear here when they are added.'
 
     return (
         <div className="page-shell">
@@ -198,18 +391,15 @@ function CommunitiesPage() {
                         <input
                             id="community-search"
                             onChange={(event) =>
-                                setFilters((current) => ({
-                                    ...current,
+                                setFilters({
                                     query: event.target.value,
-                                }))
+                                })
                             }
                             placeholder="Search communities"
                             type="search"
                             value={filters.query}
                         />
                     </label>
-
-                
                 </form>
 
                 <Tabs
@@ -218,6 +408,40 @@ function CommunitiesPage() {
                     onChange={handleTabChange}
                     tabs={tabs}
                 />
+
+                {membershipError && (
+                    <div className="form-notice" role="alert">
+                        <Icon name="alert" size={18} />
+
+                        <span>{membershipError}</span>
+
+                        <button
+                            className="button button--ghost button--small"
+                            onClick={() => setMembershipError('')}
+                            type="button"
+                        >
+                            Dismiss
+                        </button>
+                    </div>
+                )}
+
+                {user &&
+                    joinedStatus === 'error' &&
+                    visibleActiveTab !== 'joined' && (
+                        <div className="form-notice" role="alert">
+                            <Icon name="alert" size={18} />
+
+                            <span>{joinedError}</span>
+
+                            <button
+                                className="button button--secondary button--small"
+                                onClick={handleJoinedRetry}
+                                type="button"
+                            >
+                                Retry memberships
+                            </button>
+                        </div>
+                    )}
 
                 <section
                     aria-labelledby={`${visibleActiveTab}-tab`}
@@ -231,7 +455,12 @@ function CommunitiesPage() {
                                 ? 'community'
                                 : 'communities'}
                         </p>
-                        <span>Public directory</span>
+
+                        <span>
+                            {visibleActiveTab === 'joined'
+                                ? 'Your memberships'
+                                : 'Public directory'}
+                        </span>
                     </div>
 
                     <ResourceState
@@ -246,8 +475,7 @@ function CommunitiesPage() {
                         empty={
                             <EmptyState
                                 action={
-                                    filters.query &&
-                                        visibleActiveTab !== 'joined' ? (
+                                    filters.query ? (
                                         <button
                                             className="button button--secondary button--small"
                                             onClick={clearFilters}
@@ -269,8 +497,8 @@ function CommunitiesPage() {
                         error={
                             <ErrorState
                                 message={
-                                    directoryError ||
-                                    'The communities directory could not be loaded.'
+                                    visibleError ||
+                                    'The communities could not be loaded.'
                                 }
                                 onRetry={handleRetry}
                             />
@@ -280,7 +508,20 @@ function CommunitiesPage() {
                             {filteredCommunities.map((community) => (
                                 <CommunityCard
                                     community={community}
+                                    isActionDisabled={
+                                        isLoading ||
+                                        !membershipStateReady ||
+                                        pendingCommunityId !== null
+                                    }
+                                    isJoined={joinedCommunityIds.has(
+                                        community.id,
+                                    )}
+                                    isUpdating={
+                                        pendingCommunityId === community.id
+                                    }
                                     key={community.id}
+                                    onJoin={handleJoin}
+                                    onLeave={handleLeave}
                                 />
                             ))}
                         </div>
@@ -312,7 +553,7 @@ function CommunitiesPage() {
                         {isLoading
                             ? 'Checking session...'
                             : user
-                                ? 'Joining coming next'
+                                ? 'Use a Join button above'
                                 : 'Join a community'}
 
                         <Icon name="arrowRight" size={18} />
