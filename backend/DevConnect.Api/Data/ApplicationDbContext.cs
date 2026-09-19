@@ -19,6 +19,16 @@ public class ApplicationDbContext(
     {
         base.OnModelCreating(builder);
 
+        builder.Entity<Community>(
+            community =>
+            {
+                community
+                    .HasOne<ApplicationUser>()
+                    .WithMany()
+                    .HasForeignKey(item => item.CreatedByUserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
         builder.Entity<CommunityMembership>(
             membership =>
             {

@@ -122,16 +122,277 @@ Check: join and leave update both the card action and Joined tab without a full 
 
 Check: a guest can open a valid detail URL, an invalid ID shows a clear not-found state, and a signed-in user sees the same join state as the directory.
 
-### M21 - Add real discovery metadata only when required
+## M21 — Add community ownership and moderated membership applications
 
-Do this only after real product data exists for the feature:
+Change community joining from immediate membership into an application-and-approval workflow.
 
-- [ ] Add timestamps before restoring Newest sorting.
-- [ ] Add membership counts before restoring Members sorting.
-- [ ] Define an activity signal before restoring Activity sorting or Trending.
-- [ ] Move search/sort to the backend and add pagination when loading the whole directory becomes measurably unsuitable.
+A user who clicks **Join** must review the community rules, answer the creator/admin’s questions, and submit an application. The user becomes a member only after an authorised community creator or admin approves the application.
 
-Check: every restored option maps to a stored value and produces a deterministic API result.
+### M21A — Add community governance
+
+* [ ] Associate every community with a creator/owner.
+* [ ] Support community-specific roles:
+
+  * Creator
+  * Admin
+  * Member
+* [ ] Keep community roles separate from global application roles.
+* [ ] Allow only the creator and community admins to manage admission settings.
+* [ ] Allow only the creator and community admins to review applications.
+* [ ] Define a safe migration strategy for existing communities that do not yet have an owner.
+* [ ] Preserve all existing community memberships during the migration.
+* [ ] Enforce permissions in the backend rather than relying only on hidden frontend controls.
+
+**Check:** an ordinary member cannot modify community admission settings or review another user’s application.
+
+---
+
+### M21B — Add rules, questions, applications, and answers
+
+Add persistent entities for:
+
+* [ ] Community rules.
+* [ ] Community join questions.
+* [ ] Join applications.
+* [ ] Application answers.
+* [ ] Application status.
+* [ ] Submission and review metadata.
+
+Each community rule should support:
+
+* [ ] Rule text.
+* [ ] Display order.
+* [ ] Active/inactive state.
+
+Each join question should support:
+
+* [ ] Question text.
+* [ ] Display order.
+* [ ] Required/optional state.
+* [ ] Active/inactive state.
+
+Each application should store:
+
+* [ ] Community ID.
+* [ ] Applicant user ID.
+* [ ] Status:
+
+  * `Pending`
+  * `Approved`
+  * `Rejected`
+* [ ] Submission timestamp.
+* [ ] Review timestamp when reviewed.
+* [ ] Reviewing creator/admin ID when reviewed.
+* [ ] The answers submitted by the applicant.
+* [ ] A snapshot of each question’s wording so historical applications remain understandable after questions are edited.
+
+Add database constraints that prevent:
+
+* [ ] A current member from submitting an application.
+* [ ] More than one pending application for the same user and community.
+* [ ] Applications for communities that do not exist.
+* [ ] Answers that do not belong to the submitted application.
+* [ ] Approval by an unauthorised user.
+
+Define whether a rejected applicant may submit another application later. Do not leave this behaviour accidental.
+
+**Check:** pending and rejected applicants are not stored as active community members.
+
+---
+
+### M21C — Add the membership-application API
+
+Add authenticated endpoints for applicants to:
+
+* [ ] Load the active rules and questions for a community.
+* [ ] Load their current application status.
+* [ ] Submit an application and its answers.
+* [ ] Receive validation errors for missing required answers.
+* [ ] Receive a conflict response when already a member or already pending.
+
+Suggested routes:
+
+```text
+GET  /api/communities/{communityId}/join-form
+GET  /api/communities/{communityId}/applications/me
+POST /api/communities/{communityId}/applications
+```
+
+The submission endpoint must:
+
+* [ ] Validate the community.
+* [ ] Validate the authenticated user.
+* [ ] Reject existing members.
+* [ ] Reject duplicate pending applications.
+* [ ] Validate every required question.
+* [ ] Save the application and answers in one transaction.
+* [ ] Return the saved `Pending` application state.
+
+The existing direct-join endpoint must not remain as a way for ordinary users to bypass approval.
+
+**Check:** submitting a valid application returns `Pending` but does not create a community membership.
+
+---
+
+## M22 — Build the member join-application interface
+
+Replace the current immediate Join behaviour with an application dialog or panel.
+
+### Application flow
+
+```text
+Join
+  → View community rules
+  → Answer required questions
+  → Review answers
+  → Confirm submission
+  → Application pending
+```
+
+* [ ] Keep the existing authentication prompt for guests.
+* [ ] Open the application interface when an authenticated non-member clicks **Join**.
+* [ ] Load rules and questions from the API.
+* [ ] Display rules before the confirmation action.
+* [ ] Render questions in their configured order.
+* [ ] Clearly identify required questions.
+* [ ] Validate required answers before submission.
+* [ ] Allow the user to cancel without submitting.
+* [ ] Require an explicit confirmation before submission.
+* [ ] Disable repeated submission while the request is running.
+* [ ] Show a recoverable API error without losing the user’s answers.
+* [ ] Update the UI only after the server confirms the submission.
+* [ ] Restore the saved application state after refresh.
+
+Replace the current boolean-only membership display with a state-aware result:
+
+| State           | Primary interface                       |
+| --------------- | --------------------------------------- |
+| Guest           | Join, followed by authentication prompt |
+| Not applied     | Join                                    |
+| Submitting      | Submitting...                           |
+| Pending         | Application pending                     |
+| Approved member | Leave                                   |
+| Rejected        | Application declined                    |
+
+Update the shared community membership/application hook so the directory and detail page use the same server-derived state.
+
+**Check:** submitting from either the directory or detail page produces the same pending state, and refreshing does not return the button to Join.
+
+---
+
+## M23 — Add creator/admin admission management
+
+### Admission configuration
+
+Allow an authorised community creator or admin to:
+
+* [ ] View the community’s current rules.
+* [ ] Add, edit, reorder, activate, or deactivate rules.
+* [ ] View the community’s join questions.
+* [ ] Add, edit, reorder, activate, or deactivate questions.
+* [ ] Mark questions as required or optional.
+* [ ] Save configuration changes with clear success and error states.
+
+Do not permanently delete question information needed by previously submitted applications.
+
+### Application review queue
+
+Add an authorised management page where the creator/admin can:
+
+* [ ] View pending applications.
+* [ ] Open an individual application.
+* [ ] See the applicant’s identity.
+* [ ] See the submission timestamp.
+* [ ] Read the rules and question snapshots presented to the applicant.
+* [ ] Read every submitted answer.
+* [ ] Approve the application.
+* [ ] Reject the application.
+* [ ] Confirm consequential review actions.
+* [ ] See clear empty, loading, error, and retry states.
+
+Suggested routes:
+
+```text
+GET  /api/communities/{communityId}/applications?status=Pending
+GET  /api/communities/{communityId}/applications/{applicationId}
+POST /api/communities/{communityId}/applications/{applicationId}/approve
+POST /api/communities/{communityId}/applications/{applicationId}/reject
+```
+
+Approving an application must perform one transaction that:
+
+1. Confirms the application is still pending.
+2. Confirms the reviewer is an authorised creator/admin.
+3. Creates the community membership.
+4. Changes the application status to `Approved`.
+5. Records the reviewer and review timestamp.
+
+Rejecting must:
+
+1. Confirm the application is still pending.
+2. Confirm the reviewer is authorised.
+3. Change the application status to `Rejected`.
+4. Record the reviewer and review timestamp.
+5. Avoid creating a community membership.
+
+**Check:** only an approved applicant appears in the Joined tab and receives member permissions.
+
+---
+
+## M24 — Integrate and harden the moderated membership workflow
+
+* [ ] Preserve existing approved memberships.
+* [ ] Keep pending and rejected applications out of the Joined tab.
+* [ ] Ensure the directory and detail page display the same state.
+* [ ] Ensure approved members can still leave.
+* [ ] Prevent members from applying again.
+* [ ] Prevent duplicate pending applications.
+* [ ] Prevent an application from being approved or rejected twice.
+* [ ] Handle concurrent review attempts safely.
+* [ ] Preserve historical applications after rules or questions are changed.
+* [ ] Confirm that unauthorised users receive `403 Forbidden`.
+* [ ] Confirm that unauthenticated users receive `401 Unauthorized`.
+* [ ] Confirm that missing communities or applications return `404 Not Found`.
+* [ ] Add backend tests for submission, validation, approval, rejection, permissions, and duplicate prevention.
+* [ ] Add frontend tests for the dialog, validation, submission, pending state, approval state, and recoverable errors.
+* [ ] Run the complete guest, applicant, member, creator, and admin flows.
+* [ ] Confirm PostgreSQL remains the source of truth after refresh.
+
+**Check:** the complete workflow is deterministic:
+
+```text
+Not applied
+  → Pending
+  → Approved member
+```
+
+or:
+
+```text
+Not applied
+  → Pending
+  → Rejected
+```
+
+No frontend action may create membership without successful server approval.
+
+---
+
+## M25 — Add real discovery metadata only when required
+
+This is the former M21. Keep it deferred until the product has enough real data and user demand to justify each option.
+
+* [ ] Add community timestamps before restoring Newest sorting.
+* [ ] Add approved membership counts before restoring Members sorting.
+* [ ] Exclude pending and rejected applications from membership counts.
+* [ ] Define a meaningful activity signal before restoring Activity sorting or Trending.
+* [ ] Move search and sorting to the backend when loading and filtering the complete directory becomes measurably unsuitable.
+* [ ] Add pagination when directory size or measured performance requires it.
+* [ ] Keep deterministic tie-breaking for every backend sort.
+
+Do not add speculative sorting options whose values are not stored by the backend.
+
+**Check:** every restored discovery option maps to a stored value, considers only the correct records, and produces a deterministic API result.
 
 ## Intentionally deferred
 
